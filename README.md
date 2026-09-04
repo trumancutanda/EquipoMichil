@@ -1,4 +1,4 @@
-# Equipo Michi 🐾
+# Equipo Michil 🐾
 
 App web para registrar los gatos rescatados con el método CES (Captura, Esterilización, Suelta).
 
