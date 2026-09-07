@@ -257,6 +257,10 @@ function vistaAnadir(){
         <div class="btn-row" style="margin-bottom:10px;">
           <button type="button" class="btn btn-secondary btn-block" id="btn-gps">📍 Usar mi ubicación</button>
         </div>
+        <div class="btn-row" style="margin-bottom:10px;">
+          <input type="text" id="f-buscar-direccion" placeholder="O escribe una dirección para buscarla" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:var(--radius-sm); padding:12px;">
+          <button type="button" class="btn btn-secondary" id="btn-buscar-direccion">Buscar</button>
+        </div>
         <div id="mapa-form"></div>
         <div class="form-hint">O toca el mapa para marcar el punto manualmente.</div>
         <div class="form-hint" id="coords-info"></div>
@@ -333,6 +337,33 @@ function vistaAnadir(){
       () => toast('No se pudo obtener tu ubicación. Márcala en el mapa.', 'error'),
       { enableHighAccuracy: true, timeout: 8000 }
     );
+  });
+
+  async function buscarYColocarDireccion(){
+    const q = document.getElementById('f-buscar-direccion').value.trim();
+    if (!q){ toast('Escribe una dirección para buscar', 'error'); return; }
+    const btnBuscar = document.getElementById('btn-buscar-direccion');
+    btnBuscar.disabled = true; btnBuscar.textContent = 'Buscando…';
+    try{
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+      if (!res.ok) throw new Error('fallo de red');
+      const resultados = await res.json();
+      if (!resultados.length){
+        toast('No se encontró esa dirección, prueba a marcarla en el mapa', 'error');
+        return;
+      }
+      colocarMarcador(parseFloat(resultados[0].lat), parseFloat(resultados[0].lon));
+      toast('Ubicación encontrada', 'success');
+    }catch(err){
+      toast('Error buscando la dirección', 'error');
+    }finally{
+      btnBuscar.disabled = false; btnBuscar.textContent = 'Buscar';
+    }
+  }
+  document.getElementById('btn-buscar-direccion').addEventListener('click', buscarYColocarDireccion);
+  document.getElementById('f-buscar-direccion').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){ e.preventDefault(); buscarYColocarDireccion(); }
   });
 
   // --- submit ---
