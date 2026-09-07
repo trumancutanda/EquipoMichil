@@ -27,8 +27,13 @@ body{
   color: var(--text);
   font-family: 'Manrope', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);
 }
+
+/* Cuando el teclado móvil está abierto, quitamos el menú inferior
+   para que el formulario tenga todo el espacio disponible */
+body.teclado-abierto .bottom-nav{ display:none; }
+body.teclado-abierto{ padding-bottom: 24px; }
 
 h1,h2,h3,.display{
   font-family: 'Fraunces', serif;

@@ -221,7 +221,7 @@ function vistaAnadir(){
           <img id="foto-preview" class="foto-preview" src="" style="display:none;">
           <div id="foto-preview-vacia" class="foto-preview" style="display:flex;align-items:center;justify-content:center;font-size:22px;">🐾</div>
           <div>
-            <input type="file" id="input-foto" accept="image/*" capture="environment" style="display:none;">
+            <input type="file" id="input-foto" accept="image/*" style="display:none;">
             <button type="button" class="btn btn-secondary" id="btn-elegir-foto">Elegir foto</button>
             <div class="form-hint">Se comprime automáticamente antes de subir.</div>
           </div>
@@ -476,9 +476,23 @@ function confirmarBorrado(id){
 function abrirEdicion(id){
   const m = michisCache.find(x => x.id === id);
   if (!m) return;
+  let fotoEditSeleccionada = null;
+  const urlActual = fotoUrl(m.Foto);
   openModal(`
     <div class="modal-title">Editar michi <span class="icon-btn-sm" id="cerrar-modal">✕</span></div>
     <form id="form-editar">
+      <div class="form-group">
+        <label>Foto</label>
+        <div class="foto-picker">
+          <img id="e-foto-preview" class="foto-preview" src="${urlActual || ''}" style="${urlActual ? '' : 'display:none;'}">
+          <div id="e-foto-preview-vacia" class="foto-preview" style="${urlActual ? 'display:none;' : 'display:flex;align-items:center;justify-content:center;font-size:22px;'}">🐾</div>
+          <div>
+            <input type="file" id="e-input-foto" accept="image/*" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="e-btn-elegir-foto">Cambiar foto</button>
+            <div class="form-hint">Se comprime automáticamente antes de subir.</div>
+          </div>
+        </div>
+      </div>
       <div class="form-group"><label>Nombre</label><input type="text" id="e-nombre" value="${escapeHtml(m.Nombre || '')}"></div>
       <div class="form-group">
         <label>Sexo</label>
@@ -494,23 +508,56 @@ function abrirEdicion(id){
     </form>
   `);
   document.getElementById('cerrar-modal').addEventListener('click', closeModal);
+
+  document.getElementById('e-btn-elegir-foto').addEventListener('click', () => {
+    document.getElementById('e-input-foto').click();
+  });
+  document.getElementById('e-input-foto').addEventListener('change', async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+    try{
+      fotoEditSeleccionada = await comprimirImagen(archivo);
+      const previewUrl = URL.createObjectURL(fotoEditSeleccionada);
+      const img = document.getElementById('e-foto-preview');
+      img.src = previewUrl; img.style.display = 'block';
+      document.getElementById('e-foto-preview-vacia').style.display = 'none';
+    }catch(err){
+      toast('No se pudo procesar la imagen', 'error');
+    }
+  });
+
   document.getElementById('form-editar').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btnGuardar = e.target.querySelector('button[type=submit]');
+    btnGuardar.disabled = true; btnGuardar.textContent = 'Guardando…';
     try{
-      await actualizarMichi(id, {
+      const payload = {
         Nombre: document.getElementById('e-nombre').value.trim(),
         Sexo: document.getElementById('e-sexo').value,
         Color: document.getElementById('e-color').value.trim(),
         Fecha_rescate: document.getElementById('e-fecha').value,
         Direccion_referencia: document.getElementById('e-direccion').value.trim(),
         Comentarios: document.getElementById('e-comentarios').value.trim(),
-      });
+      };
+
+      let rutaAntigua = null;
+      if (fotoEditSeleccionada){
+        payload.Foto = await subirFoto(fotoEditSeleccionada);
+        rutaAntigua = m.Foto || null;
+      }
+
+      await actualizarMichi(id, payload);
+
+      // borramos la foto anterior del storage solo después de que la nueva se guardó bien
+      if (rutaAntigua) await sb.storage.from(BUCKET).remove([rutaAntigua]);
+
       await cargarMichis(true);
       closeModal();
       toast('Cambios guardados', 'success');
       renderListado(michisCache);
     }catch(err){
       toast('Error al guardar: ' + err.message, 'error');
+      btnGuardar.disabled = false; btnGuardar.textContent = 'Guardar cambios';
     }
   });
 }
@@ -612,6 +659,19 @@ async function vistaEstadisticas(){
     });
     map.fitBounds(bounds, { padding: [24, 24], maxZoom: 12 });
   }
+}
+
+/* ==========================================================
+   Ocultar el menú inferior cuando el teclado móvil está abierto
+   (evita que el botón "Guardar" quede atrapado entre el teclado
+   y el menú fijo)
+   ========================================================== */
+if (window.visualViewport){
+  const alturaBase = window.visualViewport.height;
+  window.visualViewport.addEventListener('resize', () => {
+    const encogido = alturaBase - window.visualViewport.height > 140;
+    document.body.classList.toggle('teclado-abierto', encogido);
+  });
 }
 
 /* ==========================================================
